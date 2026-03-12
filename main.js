@@ -366,9 +366,70 @@ function getTotalActiveHoursPerMonth(textFile, driverID, month) {
 // driverID: (typeof string)
 // month: (typeof number)
 // Returns: string formatted as hhh:mm:ss
-// ============================================================
+
 function getRequiredHoursPerMonth(textFile, rateFile, bonusCount, driverID, month) {
-    // TODO: Implement this function
+
+    const shiftsData = fs.readFileSync(textFile, 'utf8');
+    const ratesData = fs.readFileSync(rateFile, 'utf8');
+
+    const shiftLines = shiftsData.trim().split('\n');
+    const rateLines = ratesData.trim().split('\n');
+
+    let totalSeconds = 0;
+    let dayOff = "";
+
+    // Get driver's day off from rate file
+    for (let i = 1; i < rateLines.length; i++) {
+        const cols = rateLines[i].split(',');
+        if (cols[0].trim() === driverID) {
+            dayOff = cols[1].trim();
+            break;
+        }
+    }
+
+    const days = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+
+    for (let i = 1; i < shiftLines.length; i++) {
+
+        if (!shiftLines[i].trim()) continue;
+
+        const cols = shiftLines[i].split(',');
+
+        const currentID = cols[0].trim();
+        const date = cols[2].trim();
+
+        if (currentID !== driverID) continue;
+
+        const [year, m, day] = date.split('-').map(Number);
+
+        if (m !== month) continue;
+
+        const currentDay = days[new Date(date).getDay()];
+
+        // skip day off
+        if (currentDay === dayOff) continue;
+
+        let dailyQuota;
+
+        if (year === 2025 && m === 4 && day >= 10 && day <= 30)
+            dailyQuota = 6 * 3600;
+        else
+            dailyQuota = (8 * 3600) + (24 * 60);
+
+        totalSeconds += dailyQuota;
+    }
+
+    totalSeconds -= bonusCount * 2 * 3600;
+
+    if (totalSeconds < 0) totalSeconds = 0;
+
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+
+    const pad = (n)=>String(n).padStart(2,'0');
+
+    return `${hours}:${pad(minutes)}:${pad(seconds)}`;
 }
 
 // ============================================================
@@ -380,7 +441,56 @@ function getRequiredHoursPerMonth(textFile, rateFile, bonusCount, driverID, mont
 // Returns: integer (net pay)
 // ============================================================
 function getNetPay(driverID, actualHours, requiredHours, rateFile) {
-    // TODO: Implement this function
+
+    const data = fs.readFileSync(rateFile,'utf8');
+    const lines = data.trim().split('\n');
+
+    let basePay = null;
+    let tier = null;
+
+    for (let i = 0; i < lines.length; i++) {   // start from 0
+
+        if(!lines[i].trim()) continue;
+
+        const cols = lines[i].split(',');
+
+        if(cols[0].trim() === driverID){
+
+            basePay = parseInt(cols[2]);
+            tier = parseInt(cols[3]);
+            break;
+        }
+    }
+
+    if(basePay === null) return 0;
+
+    function toSeconds(t){
+        const [h,m,s] = t.split(':').map(Number);
+        return h*3600 + m*60 + s;
+    }
+
+    const actual = toSeconds(actualHours);
+    const required = toSeconds(requiredHours);
+
+    if(actual >= required) return basePay;
+
+    const missingSeconds = required - actual;
+    const missingHours = Math.floor(missingSeconds/3600);
+
+    const allowance = {
+        1:50,
+        2:20,
+        3:10,
+        4:3
+    };
+
+    const billable = Math.max(0, missingHours - allowance[tier]);
+
+    const deductionRate = Math.floor(basePay / 185);
+
+    const deduction = billable * deductionRate;
+
+    return basePay - deduction;
 }
 
 module.exports = {
