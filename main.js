@@ -1,5 +1,42 @@
 const fs = require("fs");
+// ========== HELPER FUNCTIONS ==========
 
+/**
+ * Convert time string like "6:01:20 am" to total seconds
+ */
+function timeToSeconds(timeStr) {
+    const [time, period] = timeStr.split(' ');
+    let [hours, minutes, seconds] = time.split(':').map(Number);
+    
+    // Convert to 24-hour format
+    if (period === 'pm' && hours !== 12) hours += 12;
+    if (period === 'am' && hours === 12) hours = 0;
+    
+    return (hours * 3600) + (minutes * 60) + seconds;
+}
+
+/**
+ * Convert seconds to "hh:mm:ss" format
+ */
+function secondsToTime(totalSeconds) {
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    
+    // Only pad minutes and seconds (not hours)
+    const pad = (num) => num.toString().padStart(2, '0');
+    
+    // Hours should NOT have leading zero
+    return `${hours}:${pad(minutes)}:${pad(seconds)}`;
+}
+
+/**
+ * Check if date is during Eid period (April 10-30, 2025)
+ */
+function isEidPeriod(date) {
+    const [year, month, day] = date.split('-').map(Number);
+    return year === 2025 && month === 4 && day >= 10 && day <= 30;
+}
 // ============================================================
 // Function 1: getShiftDuration(startTime, endTime)
 // startTime: (typeof string) formatted as hh:mm:ss am or hh:mm:ss pm
@@ -7,7 +44,10 @@ const fs = require("fs");
 // Returns: string formatted as h:mm:ss
 // ============================================================
 function getShiftDuration(startTime, endTime) {
-    // TODO: Implement this function
+   const startSeconds = timeToSeconds(startTime);
+    const endSeconds = timeToSeconds(endTime);
+    const durationSeconds = endSeconds - startSeconds;
+    return secondsToTime(durationSeconds);
 }
 
 // ============================================================
@@ -17,8 +57,28 @@ function getShiftDuration(startTime, endTime) {
 // Returns: string formatted as h:mm:ss
 // ============================================================
 function getIdleTime(startTime, endTime) {
-    // TODO: Implement this function
+    // Delivery hours: 8 AM (8*3600 sec) to 10 PM (22*3600 sec)
+    const DELIVERY_START = 8 * 3600;  // 8 AM in seconds
+    const DELIVERY_END = 22 * 3600;   // 10 PM in seconds
+    
+    const startSeconds = timeToSeconds(startTime);
+    const endSeconds = timeToSeconds(endTime);
+    
+    let idleSeconds = 0;
+    
+    // Add time before 8 AM
+    if (startSeconds < DELIVERY_START) {
+        idleSeconds += DELIVERY_START - startSeconds;
+    }
+    
+    // Add time after 10 PM
+    if (endSeconds > DELIVERY_END) {
+        idleSeconds += endSeconds - DELIVERY_END;
+    }
+    
+    return secondsToTime(idleSeconds);
 }
+
 
 // ============================================================
 // Function 3: getActiveTime(shiftDuration, idleTime)
