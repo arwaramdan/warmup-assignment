@@ -231,7 +231,29 @@ function addShiftRecord(textFile, shiftObj) {
 // Returns: nothing (void)
 // ============================================================
 function setBonus(textFile, driverID, date, newValue) {
-    // TODO: Implement this function
+    // Read the file
+    const data = fs.readFileSync(textFile, 'utf8');
+    const lines = data.split('\n');
+    
+    // Loop through each line (skip header at index 0)
+    for (let i = 1; i < lines.length; i++) {
+        if (!lines[i].trim()) continue; // Skip empty lines
+        
+        const columns = lines[i].split(',');
+        const currentID = columns[0];
+        const currentDate = columns[2];
+        
+        // Find the matching record
+        if (currentID === driverID && currentDate === date) {
+            // Update hasBonus (last column)
+            columns[columns.length - 1] = newValue.toString();
+            lines[i] = columns.join(',');
+            break;
+        }
+    }
+    
+    // Write back to file
+    fs.writeFileSync(textFile, lines.join('\n'));
 }
 
 // ============================================================
@@ -242,7 +264,42 @@ function setBonus(textFile, driverID, date, newValue) {
 // Returns: number (-1 if driverID not found)
 // ============================================================
 function countBonusPerMonth(textFile, driverID, month) {
-    // TODO: Implement this function
+ // Read the file
+    const data = fs.readFileSync(textFile, 'utf8');
+    const lines = data.trim().split('\n');
+    
+    let count = 0;
+    let driverExists = false;
+    
+    // Convert month to string and normalize
+    const monthStr = month.toString();
+    const normalizedMonth = monthStr.replace(/^0/, '');
+    
+    // Loop through each line (skip header at index 0)
+    for (let i = 1; i < lines.length; i++) {
+        if (!lines[i].trim()) continue;
+        
+        const columns = lines[i].split(',');
+        const currentID = columns[0].trim();
+        const currentDate = columns[2].trim(); // Format: yyyy-mm-dd
+        const hasBonus = columns[columns.length - 1].trim() === 'true';
+        
+        if (currentID === driverID) {
+            driverExists = true;
+            
+            // Extract month from date (get the month part)
+            const dateParts = currentDate.split('-');
+            const dateMonth = dateParts[1]; // This is "04" from "2025-04-15"
+            const normalizedDateMonth = dateMonth.replace(/^0/, '');
+            
+            // Check if month matches and has bonus
+            if (normalizedDateMonth === normalizedMonth && hasBonus) {
+                count++;
+            }
+        }
+    }
+    
+    return driverExists ? count : -1;
 }
 
 // ============================================================
@@ -253,7 +310,52 @@ function countBonusPerMonth(textFile, driverID, month) {
 // Returns: string formatted as hhh:mm:ss
 // ============================================================
 function getTotalActiveHoursPerMonth(textFile, driverID, month) {
-    // TODO: Implement this function
+    // Read the file
+    const data = fs.readFileSync(textFile, 'utf8');
+    const lines = data.trim().split('\n');
+    
+    let totalSeconds = 0;
+    
+    // Helper to convert "h:mm:ss" to seconds
+    function timeToSecondsSimple(timeStr) {
+        const [hours, minutes, seconds] = timeStr.split(':').map(Number);
+        return (hours * 3600) + (minutes * 60) + seconds;
+    }
+    
+    // Convert month to string for comparison
+    const monthStr = month.toString();
+    const normalizedMonth = monthStr.replace(/^0/, '');
+    
+    // Loop through each line (skip header)
+    for (let i = 1; i < lines.length; i++) {
+        if (!lines[i].trim()) continue;
+        
+        const columns = lines[i].split(',');
+        const currentID = columns[0].trim();
+        const currentDate = columns[2].trim();
+        const activeTime = columns[7].trim(); // activeTime is the 8th column
+        
+        if (currentID === driverID) {
+            // Extract month from date
+            const dateParts = currentDate.split('-');
+            const dateMonth = dateParts[1].replace(/^0/, '');
+            
+            if (dateMonth === normalizedMonth) {
+                // Add active time to total
+                totalSeconds += timeToSecondsSimple(activeTime);
+            }
+        }
+    }
+    
+    // Convert total seconds to "hhh:mm:ss" format
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    
+    // Pad minutes and seconds (hours can be more than 2 digits)
+    const pad = (num) => num.toString().padStart(2, '0');
+    
+    return `${hours}:${pad(minutes)}:${pad(seconds)}`;
 }
 
 // ============================================================
