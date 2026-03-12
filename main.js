@@ -87,7 +87,28 @@ function getIdleTime(startTime, endTime) {
 // Returns: string formatted as h:mm:ss
 // ============================================================
 function getActiveTime(shiftDuration, idleTime) {
-    // TODO: Implement this function
+    // Helper function to parse "hh:mm:ss" format (no AM/PM)
+    function timeToSecondsSimple(timeStr) {
+        const [hours, minutes, seconds] = timeStr.split(':').map(Number);
+        return (hours * 3600) + (minutes * 60) + seconds;
+    }
+    
+    // Convert both times to seconds
+    const shiftSeconds = timeToSecondsSimple(shiftDuration);
+    const idleSeconds = timeToSecondsSimple(idleTime);
+    
+    // Calculate active time (shift - idle)
+    const activeSeconds = shiftSeconds - idleSeconds;
+    
+    // Convert back to "h:mm:ss" format
+    const hours = Math.floor(activeSeconds / 3600);
+    const minutes = Math.floor((activeSeconds % 3600) / 60);
+    const seconds = activeSeconds % 60;
+    
+    // Pad minutes and seconds only (hours no padding)
+    const pad = (num) => num.toString().padStart(2, '0');
+    
+    return `${hours}:${pad(minutes)}:${pad(seconds)}`;
 }
 
 // ============================================================
@@ -97,7 +118,31 @@ function getActiveTime(shiftDuration, idleTime) {
 // Returns: boolean
 // ============================================================
 function metQuota(date, activeTime) {
-    // TODO: Implement this function
+    // Helper to convert "h:mm:ss" to seconds
+    function timeToSecondsSimple(timeStr) {
+        const [hours, minutes, seconds] = timeStr.split(':').map(Number);
+        return (hours * 3600) + (minutes * 60) + seconds;
+    }
+    
+    // Parse the date
+    const [year, month, day] = date.split('-').map(Number);
+    
+    // Check if date is during Eid period (April 10-30, 2025)
+    const isEid = (year === 2025 && month === 4 && day >= 10 && day <= 30);
+    
+    // Set quota based on period
+    let quotaSeconds;
+    if (isEid) {
+        quotaSeconds = 6 * 3600; // 6 hours for Eid
+    } else {
+        quotaSeconds = (8 * 3600) + (24 * 60); // 8 hours 24 minutes for normal days
+    }
+    
+    // Convert activeTime to seconds
+    const activeSeconds = timeToSecondsSimple(activeTime);
+    
+    // Return true if active time meets or exceeds quota
+    return activeSeconds >= quotaSeconds;
 }
 
 // ============================================================
