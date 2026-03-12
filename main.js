@@ -152,7 +152,74 @@ function metQuota(date, activeTime) {
 // Returns: object with 10 properties or empty object {}
 // ============================================================
 function addShiftRecord(textFile, shiftObj) {
-    // TODO: Implement this function
+    // Read the file
+    const data = fs.readFileSync(textFile, 'utf8');
+    const lines = data.trim().split('\n');
+    
+    // Extract properties from shiftObj
+    const { driverID, driverName, date, startTime, endTime } = shiftObj;
+    
+    // Check if entry with same driverID and date already exists
+    for (let i = 1; i < lines.length; i++) { // Skip header (index 0)
+        if (!lines[i].trim()) continue; // Skip empty lines
+        
+        const columns = lines[i].split(',');
+        const existingID = columns[0];
+        const existingDate = columns[2];
+        
+        if (existingID === driverID && existingDate === date) {
+            // Duplicate found - return empty object
+            return {};
+        }
+    }
+    
+    // Calculate all the fields
+    const shiftDuration = getShiftDuration(startTime, endTime);
+    const idleTime = getIdleTime(startTime, endTime);
+    const activeTime = getActiveTime(shiftDuration, idleTime);
+    const metQuotaValue = metQuota(date, activeTime);
+    
+    // Create new record object
+    const newRecord = {
+        driverID: driverID,
+        driverName: driverName,
+        date: date,
+        startTime: startTime,
+        endTime: endTime,
+        shiftDuration: shiftDuration,
+        idleTime: idleTime,
+        activeTime: activeTime,
+        metQuota: metQuotaValue,
+        hasBonus: false
+    };
+    
+    // Find where to insert the new record
+    let insertIndex = lines.length; // Default to end of file
+    
+    // If driverID exists, insert after their last record
+    for (let i = lines.length - 1; i >= 1; i--) { // Start from bottom, skip header
+        if (!lines[i].trim()) continue;
+        
+        const columns = lines[i].split(',');
+        const existingID = columns[0];
+        
+        if (existingID === driverID) {
+            insertIndex = i + 1; // Insert after this line
+            break;
+        }
+    }
+    
+    // Create the new line to insert
+    const newLine = `${newRecord.driverID},${newRecord.driverName},${newRecord.date},${newRecord.startTime},${newRecord.endTime},${newRecord.shiftDuration},${newRecord.idleTime},${newRecord.activeTime},${newRecord.metQuota},${newRecord.hasBonus}`;
+    
+    // Insert the new line at the correct position
+    lines.splice(insertIndex, 0, newLine);
+    
+    // Write back to file
+    fs.writeFileSync(textFile, lines.join('\n'));
+    
+    // Return the new record object
+    return newRecord;
 }
 
 // ============================================================
